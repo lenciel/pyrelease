@@ -1,0 +1,29 @@
+﻿<div id="release">
+<div class="section id="release_desc">
+<h3> Pivot - Version {{version_number}} Release Notes<a name="Pivot - Version {{version_number}} Release Notes"></a></h3>
+</div>
+<div class="section" id="defect">
+<h4>Bug<a name="defect"></a></h4>
+<ul>
+    {% for defect in defects %}
+<li>[{{defect.defect_number}}] <a href="{{defect.rb_link}}">Change {{defect.change_number}}</a> - {{defect.title}}</li>
+    {% endfor %}
+</ul>
+</div>
+<div class="section" id="improvement">
+<h4>Improvement<a name="improvement"></a></h4>
+<ul>
+    {% for improvement in improvements %}
+    <li><a href="{{improvement.rb_link}}">Change {{improvement.change_number}}</a> - {{improvement.title}}</li>
+    {% endfor %}
+</ul>
+</div>
+<div class="section" id="feature">
+<h4>Feature<a name="feature" ></a></h4>
+<ul>
+    {% for feature in features %}
+    <li>[{{feature.us_number}}] <a href="{{feature.rb_link}}">Change {{feature.change_number}}</a> - {{feature.title}}</li>
+    {% endfor %}
+</ul>
+</div>
+</div>
