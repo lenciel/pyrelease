@@ -38,22 +38,26 @@ class AP4:
         '''
 
         #start logger
-        self.create_logger();
+        #self.create_logger();
 
         #create p4 proxy object
         self.p4 = P4()
 
         #load config
-        self.load_cfg(ini_file);
+        self.ini_file = ini_file
+        self.load_cfg()
 
-    def load_cfg(self, ini_file):
+        #init as append mode
+        self.append = True
+
+    def load_cfg(self):
         '''
         load configuration from the ini file
         '''
         self.config = ConfigParser.ConfigParser()
-        self.config.readfp( open( ini_file ) )
-        self.new_label = self.config.get( "Label", "new" )
-        self.old_label = self.config.get( "Label", "old" )
+        self.config.readfp( open( self.ini_file ) )
+#        self.new_label = self.config.get( "Label", "new" )
+#        self.old_label = self.config.get( "Label", "old" )
         self.p4.port = self.config.get( "Server", "port" )
         self.p4.user = self.config.get( "Server", "user" )
         self.p4.client = self.config.get( "Server", "client" )
@@ -76,29 +80,27 @@ class AP4:
 
     def log_exception( self ):
         type, val, tb = sys.exc_info()
-        self.logger.error( string.join( traceback.format_exception( type, val, tb ), '' ) )
+        #self.logger.error( string.join( traceback.format_exception( type, val, tb ), '' ) )
         #print string.join( traceback.format_exception( type, val, tb ), '' )
         del type, val, tb
 
     def log_message( self, msg ):
-        self.logger.info( msg )
-        #print msg
+        #self.logger.info( msg )
+        print msg
 
-    def filter_output( self, fin, fout ):
-        """
-        fin is input file stream
-        fout is output file stream
-        """
-        ret = False
-        line = fin.readline();
-        while line:
-            fout.write( line )
-            #print "> %s" % line
-            if line.find( ": error" ) != -1:
-                print line
-                ret = True
-            line = fin.readline()
-        return ret
+    def check_version( self ):
+        '''
+        check the version number in pom.xml
+        '''
+        pom = self.config.get('Version', 'pom_path')
+        current_ver = ET.ElementTree(file=pom).findtext("{http://maven.apache.org/POM/4.0.0}version")
+        latest_ver = self.config.get('Version', 'new')
+        if current_ver != latest_ver:
+            self.append = False
+            self.config.set('Version', 'old', latest_ver)
+            self.config.set('Version', 'new', current_ver)
+            with open(self.ini_file, 'w') as configfile:
+                self.config.write(configfile)
 
     def get_connectionInfo( self ):
         '''
@@ -118,9 +120,17 @@ class AP4:
         with self.p4.at_exception_level( P4.RAISE_ERRORS ): # to ignore "File(s) up-to-date"
             try:
                 #get the changes list between two labels
+                if self.append:
+                    old_label = "Ver_%s" % self.config.get("Version", 'new')
+                    new_label = "now"
+                else:
+                    old_label = "Ver_%s" % self.config.get("Version", 'old')
+                    new_label = "Ver_%s" % self.config.get("Version", 'new')
                 change_dict_list = self.p4.run( "changes", "-l", "-i",
                     "//Products/uiActive/Client/java/UIFramework/Android/Pivot/...@%s,@%s"
-                    % ( self.old_label, self.new_label ) )
+                    % ( old_label, new_label ) )
+                self.release_ver = "Ver_%s" % self.config.get("Version", 'new')
+
                 self.log_message("-----------------START-----------------------")
                 if len(change_dict_list)>0:
                     for change_dict in change_dict_list:
@@ -210,13 +220,14 @@ if __name__ == '__main__':
     ap4 = AP4( 'cfg.ini' )
     ap4.connect()
     #ap4.get_connectionInfo()
+    ap4.check_version()
     ap4.diff_between_labels()
     ap4.disconnect()
 
     SETTINGS_DIR = os.path.dirname( os.path.realpath( __file__ ) )
     settings.configure(TEMPLATE_DIRS = (os.path.join( SETTINGS_DIR, "templates" ),))
 
-    rendered = render_to_string('my_template.html', {"version_number": "0.0.2",
+    rendered = render_to_string('my_template.html', {"version_number": ap4.release_ver,
                                                      "defects" : ap4.bug_fixings,
                                                      "features" : ap4.features,
                                                      "improvements" : ap4.improvements})
@@ -229,11 +240,12 @@ if __name__ == '__main__':
     old_report = 'templates/old.html'
     new_report = 'templates/new.html'
     tree = ET.parse(old_report, ET.HTMLParser())
-    print ET.tostring(tree)
     release_div = tree.find(".//div[@id='release']")
     body = release_div.getparent()
-    body.insert(body.index(release_div), ET.HTML(new_section_str))
+    if ap4.append:
+        body.replace(release_div, ET.HTML(new_section_str))
+    else:
+        body.insert(body.index(release_div), ET.HTML(new_section_str))
     f = open( new_report, "w")
-    print ET.tostring(tree)
     f.write(ET.tostring(tree, pretty_print=True, method="html"))
     f.close()
