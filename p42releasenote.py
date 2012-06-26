@@ -60,6 +60,7 @@ class AP4:
 #        self.old_label = self.config.get( "Label", "old" )
         self.p4.port = self.config.get( "Server", "port" )
         self.p4.user = self.config.get( "Server", "user" )
+        self.p4.password = self.config.get( "Server", "password" )
         self.p4.client = self.config.get( "Server", "client" )
 
     def create_logger(self):
@@ -81,7 +82,7 @@ class AP4:
     def log_exception( self ):
         type, val, tb = sys.exc_info()
         #self.logger.error( string.join( traceback.format_exception( type, val, tb ), '' ) )
-        #print string.join( traceback.format_exception( type, val, tb ), '' )
+        print string.join( traceback.format_exception( type, val, tb ), '' )
         del type, val, tb
 
     def log_message( self, msg ):
@@ -94,7 +95,9 @@ class AP4:
         '''
         pom = self.config.get('Version', 'pom_path')
         current_ver = ET.ElementTree(file=pom).findtext("{http://maven.apache.org/POM/4.0.0}version")
+        #print current_ver
         latest_ver = self.config.get('Version', 'new')
+        #print latest_ver
         if current_ver != latest_ver:
             self.append = False
             self.config.set('Version', 'old', latest_ver)
@@ -129,7 +132,10 @@ class AP4:
                 change_dict_list = self.p4.run( "changes", "-l", "-i",
                     "//Products/uiActive/Client/java/UIFramework/Android/Pivot/...@%s,@%s"
                     % ( old_label, new_label ) )
+             
+                #print self.config.get("Version",'new')
                 self.release_ver = "Ver_%s" % self.config.get("Version", 'new')
+                #print self.release_ver
 
                 self.log_message("-----------------START-----------------------")
                 if len(change_dict_list)>0:
